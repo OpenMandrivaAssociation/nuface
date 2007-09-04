@@ -1,13 +1,13 @@
 Summary:	A firewall administration web interface
 Name:		nuface
-Version:	1.0.5
-Release:	%mkrel 2
+Version:	1.2.5
+Release:	%mkrel 1
 License:	GPL
 Group:		System/Servers
 URL:		http://www.inl.fr/Nuface.html
 Source0:	http://www.inl.fr/download/%{name}-%{version}.tar.bz2
-Source1:	nupyf.init.bz2
-Patch0:		nuface-1.0.5-mdv_config.diff
+Source1:	nupyf.init
+Patch0:		nuface-1.2.5-mdv_config.diff
 Requires(pre):	apache-mod_php apache-mod_ssl php-ldap sudo
 Requires:	apache-mod_php apache-mod_ssl php-ldap sudo
 Requires(post): rpm-helper
@@ -44,8 +44,6 @@ find . -type f | xargs chmod 644
 # strip away annoying ^M
 find -type f | grep -v "\.gif" | grep -v "\.png" | grep -v "\.jpg" | xargs dos2unix -U
 
-bzcat %{SOURCE1} > nupyf.init
-
 %build
 
 pushd scripts
@@ -73,7 +71,7 @@ install -d %{buildroot}%{_datadir}/%{name}
 
 cp -aRf * %{buildroot}/var/www/%{name}/
 
-install -m0755 nupyf.init %{buildroot}%{_initrddir}/nupyf
+install -m0755 %SOURCE1 %{buildroot}%{_initrddir}/nupyf
 
 install doc/desc.xml %{buildroot}%{_sysconfdir}/%{name}/desc/desc.xml.ex
 install doc/acls.xml %{buildroot}%{_localstatedir}/%{name}/empty.xml
@@ -85,12 +83,6 @@ pushd scripts
     python setup_nupyf.py install --root %{buildroot} --install-purelib=%{py_sitedir}
 popd
 
-cat > run_nupyf << EOF
-#!/bin/sh
-exec %{_bindir}/python %{py_sitedir}/nupyf/nupyf.py \$*
-EOF
-
-install -m0755 run_nupyf %{buildroot}%{_sbindir}/nupyf
 
 # cleanup
 pushd %{buildroot}/var/www/%{name}
@@ -107,7 +99,7 @@ pushd %{buildroot}%{py_sitedir}/nupyf
 popd
 
 # fix config file location
-mv %{buildroot}/var/www/%{name}/include/config.php %{buildroot}%{_sysconfdir}/%{name}/config.php
+mv %{buildroot}/var/www/%{name}/include/config.template.php %{buildroot}%{_sysconfdir}/%{name}/config.php
 
 # fix apache config
 cat > %{buildroot}%{_sysconfdir}/httpd/conf/webapps.d/%{name}.conf << EOF
@@ -138,48 +130,26 @@ Alias /%{name} /var/www/%{name}
 
 EOF
 
-# install script to call the web interface from the menu.
-install -d %{buildroot}%{_libdir}/%{name}/scripts
-cat > %{buildroot}%{_libdir}/%{name}/scripts/%{name} <<EOF
-#!/bin/sh
-
-url='https://localhost/%{name}'
-if ! [ -z "\$BROWSER" ] && ( which \$BROWSER ); then
-  browser=\`which \$BROWSER\`
-elif [ -x /usr/bin/mozilla-firefox ]; then
-  browser=/usr/bin/mozilla-firefox
-elif [ -x /usr/bin/konqueror ]; then
-  browser=/usr/bin/konqueror
-elif [ -x /usr/bin/lynx ]; then
-  browser='xterm -bg black -fg white -e lynx'
-elif [ -x /usr/bin/links ]; then
-  browser='xterm -bg black -fg white -e links'
-else
-  xmessage "No web browser found, install one or set the BROWSER environment variable!"
-  exit 1
-fi
-\$browser \$url
-EOF
-chmod 755 %{buildroot}%{_libdir}/%{name}/scripts/%{name}
-
 # Mandriva Icons
 install -d %{buildroot}%{_iconsdir}
 install -d %{buildroot}%{_miconsdir}
 install -d %{buildroot}%{_liconsdir}
 
-convert nupik.png -resize 16x16 %{buildroot}%{_miconsdir}/%{name}.png
-convert nupik.png -resize 32x32 %{buildroot}%{_iconsdir}/%{name}.png
-convert nupik.png -resize 48x48 %{buildroot}%{_liconsdir}/%{name}.png
+convert images/nupik.png -resize 16x16 %{buildroot}%{_miconsdir}/%{name}.png
+convert images/nupik.png -resize 32x32 %{buildroot}%{_iconsdir}/%{name}.png
+convert images/nupik.png -resize 48x48 %{buildroot}%{_liconsdir}/%{name}.png
 
 # install menu entry.
-install -d %{buildroot}%{_menudir}
-cat > %{buildroot}%{_menudir}/%{name} << EOF
-?package(%{name}): needs=X11 \
-section="System/Monitoring" \
-title="Nuface" \
-longtitle="A firewall administration web interface.  Set the $BROWSER environment variable to choose your preferred browser." \
-command="%{_libdir}/%{name}/scripts/%{name} 1>/dev/null 2>/dev/null" \
-icon="%{name}.png"
+install -d %{buildroot}%{_datadir}/applications
+cat > %{buildroot}%{_datadir}/applications/mandriva-%{name}.desktop << EOF
+Name=Nuface
+Comment=A firewall administration web interface.
+Exec=xdg-open https://localhost/%{name}
+Icon=%{name}
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=System;Monitor;
 EOF
 
 %post
@@ -213,13 +183,11 @@ ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version --oldfile %
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/desc.xml.ex
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/nupyf.conf
 %attr(0644,root,root) %config(noreplace) %{_localstatedir}/%{name}/empty.xml
-%attr(0755,root,root) %{_sbindir}/nupyf
+%attr(0755,root,root) %{_bindir}/nupyf
 %attr(0640,apache,root) %config(noreplace) %{_sysconfdir}/%{name}/config.php
 /var/www/%{name}
 %{py_sitedir}/nupyf
-%attr(0755,root,root) %{_libdir}/%{name}/scripts/%{name}
-%{_menudir}/%{name}
+%{_datadir}/applications/mandriva*.desktop
 %{_iconsdir}/%{name}.png
 %{_miconsdir}/%{name}.png
 %{_liconsdir}/%{name}.png
-
