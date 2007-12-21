@@ -17,6 +17,7 @@ BuildRequires:	dos2unix
 BuildRequires:	ImageMagick
 BuildRequires:	apache-base >= 2.0.54
 Requires(post):	ccp >= 0.4.0
+BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 %description
 Nuface is an intuitive firewall configuration interface for EdenWall/NuFW as
