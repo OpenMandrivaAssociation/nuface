@@ -12,7 +12,7 @@ Requires(pre):	apache-mod_php apache-mod_ssl php-ldap sudo
 Requires:	apache-mod_php apache-mod_ssl php-ldap sudo
 Requires(post): rpm-helper
 Requires(preun): rpm-helper
-BuildRequires:	python
+BuildRequires:	python python-devel
 BuildRequires:	dos2unix
 BuildRequires:	ImageMagick
 BuildRequires:	apache-base >= 2.0.54
