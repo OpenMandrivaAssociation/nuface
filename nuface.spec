@@ -1,6 +1,6 @@
 Summary:	A firewall administration web interface
 Name:		nuface
-Version:	1.2.5
+Version:	1.2.8
 Release:	%mkrel 1
 License:	GPL
 Group:		System/Servers
@@ -191,3 +191,4 @@ ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version --oldfile %
 %{_iconsdir}/%{name}.png
 %{_miconsdir}/%{name}.png
 %{_liconsdir}/%{name}.png
+%{py_puresitedir}/nupyf-1.2-py2.5.egg-info
