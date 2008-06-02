@@ -62,7 +62,7 @@ install -d %{buildroot}%{_sysconfdir}/%{name}/dyn
 install -d %{buildroot}%{_sysconfdir}/%{name}/dyn/nufw
 install -d %{buildroot}%{_sysconfdir}/%{name}/dyn/standard
 install -d %{buildroot}%{_sysconfdir}/%{name}/desc
-install -d %{buildroot}%{_localstatedir}/%{name}
+install -d %{buildroot}%{_localstatedir}/lib/%{name}
 install -d %{buildroot}/var/log/%{name}
 install -d %{buildroot}%{_sbindir}
 
@@ -74,7 +74,7 @@ cp -aRf * %{buildroot}/var/www/%{name}/
 install -m0755 %SOURCE1 %{buildroot}%{_initrddir}/nupyf
 
 install doc/desc.xml %{buildroot}%{_sysconfdir}/%{name}/desc/desc.xml.ex
-install doc/acls.xml %{buildroot}%{_localstatedir}/%{name}/empty.xml
+install doc/acls.xml %{buildroot}%{_localstatedir}/lib/%{name}/empty.xml
 install scripts/nupyf.conf %{buildroot}%{_sysconfdir}/%{name}/desc/desc.xml.ex
 
 install scripts/nupyf.conf %{buildroot}%{_sysconfdir}/%{name}/desc/nupyf.conf
@@ -178,11 +178,11 @@ ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version --oldfile %
 %dir %attr(0755,root,root) %{_sysconfdir}/%{name}/dyn/nufw
 %dir %attr(0755,root,root) %{_sysconfdir}/%{name}/dyn/standard
 %dir %attr(0755,root,root) %{_sysconfdir}/%{name}/desc
-%dir %attr(0755,root,root) %{_localstatedir}/%{name}
+%dir %attr(0755,root,root) %{_localstatedir}/lib/%{name}
 %dir %attr(0755,root,root) /var/log/%{name}
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/desc.xml.ex
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/nupyf.conf
-%attr(0644,root,root) %config(noreplace) %{_localstatedir}/%{name}/empty.xml
+%attr(0644,root,root) %config(noreplace) %{_localstatedir}/lib/%{name}/empty.xml
 %attr(0755,root,root) %{_bindir}/nupyf
 %attr(0640,apache,root) %config(noreplace) %{_sysconfdir}/%{name}/config.php
 /var/www/%{name}
