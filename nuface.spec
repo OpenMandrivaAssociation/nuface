@@ -156,11 +156,15 @@ EOF
 %_post_service nupyf
 ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version --oldfile %{_sysconfdir}/%{name}/config.php --newfile %{_sysconfdir}/%{name}/config.php.rpmnew
 %_post_webapp
+%if %mdkversion < 200900
 %update_menus
+%endif
 
 %postun
 %_postun_webapp
+%if %mdkversion < 200900
 %clean_menus
+%endif
 
 %preun
 %_preun_service nupyf
