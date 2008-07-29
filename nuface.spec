@@ -1,7 +1,7 @@
 Summary:	A firewall administration web interface
 Name:		nuface
 Version:	1.2.8
-Release:	%mkrel 1
+Release:	%mkrel 3
 License:	GPL
 Group:		System/Servers
 URL:		http://www.inl.fr/Nuface.html
