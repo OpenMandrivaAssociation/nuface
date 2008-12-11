@@ -14,7 +14,7 @@ Requires(post): rpm-helper
 Requires(preun): rpm-helper
 BuildRequires:	python python-devel
 BuildRequires:	dos2unix
-BuildRequires:	ImageMagick
+BuildRequires:	imagemagick
 BuildRequires:	apache-base >= 2.0.54
 Requires(post):	ccp >= 0.4.0
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
