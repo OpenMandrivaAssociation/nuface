@@ -1,13 +1,12 @@
 Summary:	A firewall administration web interface
 Name:		nuface
-Version:	1.2.8
-Release:	%mkrel 3
+Version:	2.0.14
+Release:	%mkrel 1
 License:	GPL
 Group:		System/Servers
 URL:		http://www.inl.fr/Nuface.html
 Source0:	http://www.inl.fr/download/%{name}-%{version}.tar.bz2
 Source1:	nupyf.init
-Patch0:		nuface-1.2.5-mdv_config.diff
 Requires(pre):	apache-mod_php apache-mod_ssl php-ldap sudo
 Requires:	apache-mod_php apache-mod_ssl php-ldap sudo
 Requires(post): rpm-helper
@@ -28,7 +27,6 @@ NuFW.
 %prep
 
 %setup -q
-%patch0 -p1
 
 # clean up CVS stuff
 for i in `find . -type d -name CVS` `find . -type f -name .cvs\*` `find . -type f -name .#\*`; do
@@ -74,7 +72,6 @@ cp -aRf * %{buildroot}/var/www/%{name}/
 install -m0755 %SOURCE1 %{buildroot}%{_initrddir}/nupyf
 
 install doc/desc.xml %{buildroot}%{_sysconfdir}/%{name}/desc/desc.xml.ex
-install doc/acls.xml %{buildroot}%{_localstatedir}/lib/%{name}/empty.xml
 install scripts/nupyf.conf %{buildroot}%{_sysconfdir}/%{name}/desc/desc.xml.ex
 
 install scripts/nupyf.conf %{buildroot}%{_sysconfdir}/%{name}/desc/nupyf.conf
@@ -97,9 +94,6 @@ popd
 pushd %{buildroot}%{py_sitedir}/nupyf
     find -type f -name "*.py*" | xargs chmod 755
 popd
-
-# fix config file location
-mv %{buildroot}/var/www/%{name}/include/config.template.php %{buildroot}%{_sysconfdir}/%{name}/config.php
 
 # fix apache config
 cat > %{buildroot}%{_sysconfdir}/httpd/conf/webapps.d/%{name}.conf << EOF
@@ -186,13 +180,11 @@ ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version --oldfile %
 %dir %attr(0755,root,root) /var/log/%{name}
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/desc.xml.ex
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/nupyf.conf
-%attr(0644,root,root) %config(noreplace) %{_localstatedir}/lib/%{name}/empty.xml
 %attr(0755,root,root) %{_bindir}/nupyf
-%attr(0640,apache,root) %config(noreplace) %{_sysconfdir}/%{name}/config.php
 /var/www/%{name}
 %{py_sitedir}/nupyf
 %{_datadir}/applications/mandriva*.desktop
 %{_iconsdir}/%{name}.png
 %{_miconsdir}/%{name}.png
 %{_liconsdir}/%{name}.png
-%{py_puresitedir}/nupyf-1.2-py2.5.egg-info
+%{py_puresitedir}/nupyf-*-py*.egg-info
