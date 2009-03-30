@@ -1,25 +1,29 @@
 Summary:	A firewall administration web interface
 Name:		nuface
 Version:	2.0.14
-Release:	%mkrel 1
+Release:	%mkrel 2
 License:	GPL
 Group:		System/Servers
-URL:		http://www.inl.fr/Nuface.html
-Source0:	http://www.inl.fr/download/%{name}-%{version}.tar.bz2
-Source1:	nupyf.init
-Requires(pre):	apache-mod_php apache-mod_ssl php-ldap sudo
-Requires:	apache-mod_php apache-mod_ssl php-ldap sudo
+URL:		http://software.inl.fr/trac/wiki/EdenWall/NuFace
+Source0:	http://software.inl.fr/releases/Nuface/%{name}-%{version}.tar.bz2
+Patch0:		nuface-docmake.patch
+Patch1:		nuface-make1.patch
+Patch2:   	nuface-manualrules-targets.patch
+Requires(pre):	php-ldap sudo
+Requires:	webserver php-ldap sudo libxml2-python python-ldap gettext nuphp sudo
+Suggests:       mod_ssl nufw-utils
+Requires:	python python-pygraphviz graphviz iproute2 net-tools python-IPy php-pear-Image_GraphViz
 Requires(post): rpm-helper
 Requires(preun): rpm-helper
 BuildRequires:	python python-devel
-BuildRequires:	dos2unix
-BuildRequires:	imagemagick
+BuildRequires:	ImageMagick libxslt-proc docbook-style-xsl docbook-dtd45-xml
 BuildRequires:	apache-base >= 2.0.54
 Requires(post):	ccp >= 0.4.0
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
+
 %description
-Nuface is an intuitive firewall configuration interface for EdenWall/NuFW as
+Nuface2 is an intuitive firewall configuration interface for EdenWall/NuFW as
 well as for Netfilter. It lets you use high level objects, agglomerate objects
 into ACLs, and deals with generating Netfilter rules as well as LDAP Acls for
 NuFW.
@@ -27,75 +31,40 @@ NuFW.
 %prep
 
 %setup -q
-
-# clean up CVS stuff
-for i in `find . -type d -name CVS` `find . -type f -name .cvs\*` `find . -type f -name .#\*`; do
-    if [ -e "$i" ]; then rm -r $i; fi >&/dev/null
-done
-
-# fix dir perms
-find . -type d | xargs chmod 755
-
-# fix file perms
-find . -type f | xargs chmod 644
-
-# strip away annoying ^M
-find -type f | grep -v "\.gif" | grep -v "\.png" | grep -v "\.jpg" | xargs dos2unix -U
+%patch0 -p0
+%patch1 -p0
+%patch2 -p1
 
 %build
-
-pushd scripts
-    python setup_nupyf.py build
-popd
+%make all
 
 %install
 [ "%{buildroot}" != "/" ] && rm -rf %{buildroot}
 
-export DONT_RELINK=1
-
 install -d %{buildroot}%{_initrddir}
 install -d %{buildroot}%{_sysconfdir}/httpd/conf/webapps.d
 install -d %{buildroot}%{_sysconfdir}/%{name}
-install -d %{buildroot}%{_sysconfdir}/%{name}/dyn
-install -d %{buildroot}%{_sysconfdir}/%{name}/dyn/nufw
-install -d %{buildroot}%{_sysconfdir}/%{name}/dyn/standard
-install -d %{buildroot}%{_sysconfdir}/%{name}/desc
 install -d %{buildroot}%{_localstatedir}/lib/%{name}
 install -d %{buildroot}/var/log/%{name}
 install -d %{buildroot}%{_sbindir}
-
 install -d %{buildroot}/var/www/%{name}
 install -d %{buildroot}%{_datadir}/%{name}
+install -d %{buildroot}%{_docdir}/%{name}
 
-cp -aRf * %{buildroot}/var/www/%{name}/
+%make install DESTDIR=%{buildroot}
 
-install -m0755 %SOURCE1 %{buildroot}%{_initrddir}/nupyf
+install AUTHORS BUGS COPYING Changelog INSTALL README %{buildroot}%{_docdir}/%{name}
+install README.* %{buildroot}%{_docdir}/%{name}
+cp -a doc/nuface %{buildroot}%{_docdir}/%{name}
+install doc/ck-style.css %{buildroot}%{_docdir}/%{name}
+install doc/desc.* %{buildroot}%{_docdir}/%{name}
+install doc/acls.dtd %{buildroot}%{_docdir}/%{name}
+install doc/empty.xml %{buildroot}%{_docdir}/%{name}
+install doc/*.rst %{buildroot}%{_docdir}/%{name}
+install doc/desc.xml %{buildroot}/var/lib/nuface/desc.xml.ex
 
-install doc/desc.xml %{buildroot}%{_sysconfdir}/%{name}/desc/desc.xml.ex
-install scripts/nupyf.conf %{buildroot}%{_sysconfdir}/%{name}/desc/desc.xml.ex
+echo -e "<?php\ninclude (\"/etc/nuface/config.php\"); \n?>" > %{buildroot}/var/www/nuface/include/config.php
 
-install scripts/nupyf.conf %{buildroot}%{_sysconfdir}/%{name}/desc/nupyf.conf
-
-pushd scripts
-    python setup_nupyf.py install --root %{buildroot} --install-purelib=%{py_sitedir}
-popd
-
-
-# cleanup
-pushd %{buildroot}/var/www/%{name}
-    rm -rf debian scripts
-    rm -f AUTHORS BUGS COPYING Changelog INSTALL README TODO nupyf.init
-    rm -f images/*.xcf install.sh
-    find -name "\.htaccess" | xargs rm -f
-    find -name "Makefile" | xargs rm -f
-popd
-
-# fix python permissions
-pushd %{buildroot}%{py_sitedir}/nupyf
-    find -type f -name "*.py*" | xargs chmod 755
-popd
-
-# fix apache config
 cat > %{buildroot}%{_sysconfdir}/httpd/conf/webapps.d/%{name}.conf << EOF
 
 Alias /%{name} /var/www/%{name}
@@ -107,6 +76,8 @@ Alias /%{name} /var/www/%{name}
     AuthName "Nuface authentication"
     AuthUserFile %{_sysconfdir}/%{name}/apache_users
     Require valid-user
+    php_flag allow_call_time_pass_reference on
+    ErrorDocument 401 "The password you entered was incorrect, or the username you used has not been configured. New users can be added by running htpasswd -c %{_sysconfdir}/%{name}/apache_users username"
 </Directory>
 
 <Directory /var/www/%{name}/include>
@@ -136,9 +107,10 @@ convert images/nupik.png -resize 48x48 %{buildroot}%{_liconsdir}/%{name}.png
 # install menu entry.
 install -d %{buildroot}%{_datadir}/applications
 cat > %{buildroot}%{_datadir}/applications/mandriva-%{name}.desktop << EOF
+[Desktop Entry]
 Name=Nuface
 Comment=A firewall administration web interface.
-Exec=xdg-open https://localhost/%{name}
+Exec=/usr/bin/www-browser https://localhost/%{name}
 Icon=%{name}
 Terminal=false
 Type=Application
@@ -147,44 +119,46 @@ Categories=System;Monitor;
 EOF
 
 %post
-%_post_service nupyf
+%_post_service init-firewall
 ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version --oldfile %{_sysconfdir}/%{name}/config.php --newfile %{_sysconfdir}/%{name}/config.php.rpmnew
 %_post_webapp
-%if %mdkversion < 200900
-%update_menus
-%endif
 
 %postun
 %_postun_webapp
-%if %mdkversion < 200900
-%clean_menus
-%endif
 
 %preun
-%_preun_service nupyf
+%_preun_service init-firewall
 
 %clean
 [ "%{buildroot}" != "/" ] && rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
-%doc AUTHORS BUGS COPYING Changelog INSTALL README
-%attr(0755,root,root) %{_initrddir}/nupyf
+%doc *
+%doc %{_var}/lib/nuface/local_rules.d/README
+%doc %{_var}/lib/nuface/desc.xml.ex
+%attr(0755,root,root) /etc/init.d/init-firewall
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/httpd/conf/webapps.d/%{name}.conf
-%dir %attr(0755,root,root) %{_sysconfdir}/%{name}
-%dir %attr(0755,root,root) %{_sysconfdir}/%{name}/dyn
-%dir %attr(0755,root,root) %{_sysconfdir}/%{name}/dyn/nufw
-%dir %attr(0755,root,root) %{_sysconfdir}/%{name}/dyn/standard
-%dir %attr(0755,root,root) %{_sysconfdir}/%{name}/desc
-%dir %attr(0755,root,root) %{_localstatedir}/lib/%{name}
-%dir %attr(0755,root,root) /var/log/%{name}
-%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/desc.xml.ex
-%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/%{name}/desc/nupyf.conf
-%attr(0755,root,root) %{_bindir}/nupyf
-/var/www/%{name}
-%{py_sitedir}/nupyf
+%config %dir %attr(0755,apache,apache) %{_var}/lib/%{name}
+%config %dir %attr(0755,apache,apache) %{_var}/lib/%{name}/dyn
+%config %dir %attr(0755,apache,apache) %{_var}/lib/%{name}/dyn/nufw
+%config %dir %attr(0755,apache,apache) %{_var}/lib/%{name}/dyn/standard
+%config %dir %attr(0755,apache,apache) %{_var}/lib/nuface/local_rules.d
+%config %dir %attr(0755,apache,apache) %{_var}/lib/%{name}/acls
+%config %dir %attr(0755,root,root) %{_var}/lib/%{name}/backups
+%config(noreplace) %attr(0644,root,apache) /etc/nuface/config.php
+%config(noreplace) %attr(0644,root,apache) /etc/nuface/nupyf.conf
+%config %{_var}/lib/nuface/acls/fixed/empty.xml
+%dir %attr(0755,root,root) %{_var}/log/%{name}
+# main app files
+%{_var}/www/%{name}
+# python
+%{py_sitedir}
+
 %{_datadir}/applications/mandriva*.desktop
+%{_datadir}/locale/fr/LC_MESSAGES/nuface.mo
+%{_mandir}
+%{_sbindir}
 %{_iconsdir}/%{name}.png
 %{_miconsdir}/%{name}.png
 %{_liconsdir}/%{name}.png
-%{py_puresitedir}/nupyf-*-py*.egg-info
