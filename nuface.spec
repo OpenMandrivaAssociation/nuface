@@ -1,7 +1,7 @@
 Summary:	A firewall administration web interface
 Name:		nuface
 Version:	2.0.14
-Release:	%mkrel 3
+Release:	%mkrel 4
 License:	GPL
 Group:		System/Servers
 URL:		http://software.inl.fr/trac/wiki/EdenWall/NuFace
@@ -36,7 +36,7 @@ NuFW.
 %patch2 -p1
 
 %build
-%make all
+make all
 
 %install
 [ "%{buildroot}" != "/" ] && rm -rf %{buildroot}
@@ -51,7 +51,7 @@ install -d %{buildroot}/var/www/%{name}
 install -d %{buildroot}%{_datadir}/%{name}
 install -d %{buildroot}%{_docdir}/%{name}
 
-%make install DESTDIR=%{buildroot}
+%makeinstall_std
 
 install AUTHORS BUGS COPYING Changelog INSTALL README %{buildroot}%{_docdir}/%{name}
 install README.* %{buildroot}%{_docdir}/%{name}
