@@ -1,41 +1,26 @@
 Summary:	A firewall administration web interface
 Name:		nuface
-Version:	2.0.14
-Release:	%mkrel 5
+Version:	2.0.16
+Release:	%mkrel 1
 License:	GPL
 Group:		System/Servers
 URL:		http://software.inl.fr/trac/wiki/EdenWall/NuFace
 Source0:	http://software.inl.fr/releases/Nuface/%{name}-%{version}.tar.bz2
+Source1:	README.urpmi.%{name}
 Patch0:		nuface-docmake.patch
 Patch1:		nuface-make1.patch
 Patch2:   	nuface-manualrules-targets.patch
-Requires:	webserver
-Requires:	sudo
-Requires:	gettext
-Requires:	nuphp
-Requires:	python
-Requires:	python-pygraphviz
-Requires:	python-IPy
-Requires:	python-ldap
-Requires:	libxml2-python
-Requires:	graphviz
-Requires:	iproute2
-Requires:	net-tools
-Requires:	php-ldap
-Requires:	php-pear-Image_GraphViz
-Suggests:   nufw-utils
-BuildRequires:	python-devel
-BuildRequires:	ImageMagick
-BuildRequires:	libxslt-proc
-BuildRequires:	docbook-style-xsl
-BuildRequires:	docbook-dtd45-xml
+Requires(pre):	php-ldap sudo
+Requires:	webserver php-ldap sudo libxml2-python python-ldap gettext sudo php-pear
+Suggests:       mod_ssl nufw-utils
+Requires:	python iproute2 net-tools python-IPy nuphp
+Requires(post): rpm-helper
+Requires(preun): rpm-helper
+BuildRequires:	python python-devel
+BuildRequires:	ImageMagick libxslt-proc docbook-style-xsl docbook-dtd45-xml
+BuildRequires:	apache-base >= 2.0.54
 Requires(post):	ccp >= 0.4.0
-Requires(post):	rpm-helper
-Requires(preun):	rpm-helper
-%if %mdkversion < 201010
-Requires(postun):   rpm-helper
-%endif
-BuildRoot:	%{_tmppath}/%{name}-%{version}
+BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 
 %description
@@ -55,7 +40,7 @@ NuFW.
 make all
 
 %install
-rm -rf %{buildroot}
+[ "%{buildroot}" != "/" ] && rm -rf %{buildroot}
 
 install -d %{buildroot}%{_initrddir}
 install -d %{buildroot}%{_sysconfdir}/httpd/conf/webapps.d
@@ -86,17 +71,29 @@ cat > %{buildroot}%{_sysconfdir}/httpd/conf/webapps.d/%{name}.conf << EOF
 Alias /%{name} /var/www/%{name}
 
 <Directory /var/www/%{name}>
-    Order deny,allow
-    Deny from all
-    Allow from 127.0.0.1
-    ErrorDocument 403 "Access denied per %{webappconfdir}/%{name}.conf"
+    Allow from All
+    # Create this file with "htpasswd -c %{_sysconfdir}/%{name}/apache_users username"
+    Authtype Basic
+    AuthName "Nuface authentication"
+    AuthUserFile %{_sysconfdir}/%{name}/apache_users
+    Require valid-user
     php_flag allow_call_time_pass_reference on
+    ErrorDocument 401 "The password you entered was incorrect, or the username you used has not been configured. New users can be added by running htpasswd -c %{_sysconfdir}/%{name}/apache_users username"
 </Directory>
 
 <Directory /var/www/%{name}/include>
-    Order deny,allow
-    Deny from all
+    Order Deny,Allow
+    Deny from All
+    Allow from None
 </Directory>
+
+<LocationMatch /%{name}>
+    Options FollowSymLinks
+    RewriteEngine on
+    RewriteCond %{SERVER_PORT} !^443$
+    RewriteRule ^.*$ https://%{SERVER_NAME}%{REQUEST_URI} [L,R]
+</LocationMatch>
+
 EOF
 
 # Mandriva Icons
@@ -122,31 +119,49 @@ StartupNotify=true
 Categories=System;Monitor;
 EOF
 
+cat > README.urpmi <<EOF
+Nuface is now installed. Please edit /etc/nuface/apache_users file to add
+users allowed to connect on nuface interface. Add one user per line.
+EOF
+
 %post
 %_post_service init-firewall
-ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version \
-    --oldfile %{_sysconfdir}/%{name}/config.php \
-    --newfile %{_sysconfdir}/%{name}/config.php.rpmnew
-%if %mdkversion < 201010
+ccp --delete --ifexists --set "NoOrphans" --ignoreopt config_version --oldfile %{_sysconfdir}/%{name}/config.php --newfile %{_sysconfdir}/%{name}/config.php.rpmnew
 %_post_webapp
-%endif
+/bin/chmod a+w /etc/sudoers
+if ! grep -q 'NuFW' /etc/sudoers; then
+    echo  " " >> /etc/sudoers
+    echo  "##### Add for NuFW and Nuface ####" >> /etc/sudoers
+    echo "Defaults:apache !authenticate" >> /etc/sudoers
+    echo "apache ALL = /etc/init.d/init-firewall" >> /etc/sudoers
+fi
+/bin/chmod 0440 /etc/sudoers
 
 %postun
-%if %mdkversion < 201010
 %_postun_webapp
-%endif
+if [ "$1" = "0" ]; then
+    # remove sudoers entry
+    /bin/chmod a+w /etc/sudoers
+    if grep -q 'NuFW' /etc/sudoers; then
+	sed -i 's/##### Add for NuFW and Nuface ####//g' /etc/sudoers
+	sed -i 's/Defaults:apache !authenticate//g' /etc/sudoers
+	sed -i 's/apache ALL = \/etc\/init.d\/httpd//g' /etc/sudoers
+    fi
+    /bin/chmod 0440 /etc/sudoers
+fi
 
 %preun
 %_preun_service init-firewall
 
 %clean
-rm -rf %{buildroot}
+[ "%{buildroot}" != "/" ] && rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
 %doc *
 %doc %{_var}/lib/nuface/local_rules.d/README
 %doc %{_var}/lib/nuface/desc.xml.ex
+%doc README.urpmi
 %attr(0755,root,root) /etc/init.d/init-firewall
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/httpd/conf/webapps.d/%{name}.conf
 %config %dir %attr(0755,apache,apache) %{_var}/lib/%{name}
