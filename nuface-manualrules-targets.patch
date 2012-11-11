@@ -1,0 +1,192 @@
+diff -urN nuface-2.0.13.orig/include/function.php nuface-2.0.13/include/function.php
+--- nuface-2.0.13.orig/include/function.php	2008-11-20 02:41:03.000000000 +1300
++++ nuface-2.0.13/include/function.php	2009-02-16 14:39:31.000000000 +1300
+@@ -76,7 +76,7 @@
+   }
+ }
+ 
+-function gen_nupyf_args($dir, $dispatch, $forward, $input, $output, $nat, $rescue, $mangle)
++function gen_nupyf_args($dir, $dispatch_targets, $default_estrel_invalid, $dispatch, $forward, $input, $output, $nat, $rescue, $mangle)
+ {
+   global $nupyf_same_iface, $debug_nuface, $disable_check_net, $l7_firewall,
+     $nupyf_use_ulog, $nufw_firewall, $transparent_proxy_port;
+@@ -86,6 +86,10 @@
+       $args .= ' --debug';
+   if ($rescue == true)
+       $args .= ' --rescue';
++  if ($dispatch_targets != '')
++      $args .= " --dispatch_targets $dir/$dispatch_targets";
++  if ($default_estrel_invalid != '')
++      $args .= " --default_estrel_invalid $dir/$default_estrel_invalid";
+   if ($dispatch != '')
+       $args .= " --dispatch $dir/$dispatch";
+   if ($forward != '')
+diff -urN nuface-2.0.13.orig/include/index_func.php nuface-2.0.13/include/index_func.php
+--- nuface-2.0.13.orig/include/index_func.php	2008-11-26 02:14:03.000000000 +1300
++++ nuface-2.0.13/include/index_func.php	2009-02-16 14:39:52.000000000 +1300
+@@ -105,7 +105,7 @@
+     $output_rules = 'output_rules.tmp';
+     $nat_rules = 'nat_rules.tmp';
+     $mangle_rules = 'mangle_rules.tmp';
+-    $nupyf_args = gen_nupyf_args($nufw_rules_dir, 'dispatch_rules.tmp', 'forward_rules.tmp', $input_rules, $output_rules, $nat_rules, false, $mangle_rules);
++    $nupyf_args = gen_nupyf_args($nufw_rules_dir, 'dispatch_targets.tmp', 'default_estrel_invalid.tmp','dispatch_rules.tmp', 'forward_rules.tmp', $input_rules, $output_rules, $nat_rules, false, $mangle_rules);
+     $nupyf_args.= " --sortid $used_desc";
+     if ($nufw_firewall)
+     {
+@@ -119,7 +119,7 @@
+     }
+ 
+     //generate rescue rules
+-    $nupyf_args = gen_nupyf_args($std_rules_dir, 'dispatch_rules.tmp', 'forward_rules.tmp', $input_rules, $output_rules, $nat_rules, true, $mangle_rules);
++    $nupyf_args = gen_nupyf_args($std_rules_dir, 'dispatch_targets.tmp', 'default_estrel_invalid.tmp', 'dispatch_rules.tmp', 'forward_rules.tmp', $input_rules, $output_rules, $nat_rules, true, $mangle_rules);
+     $nupyf_args.= " --sortid $used_desc";
+     $nupyf_cmd = $nupyf_command.$nupyf_args." $desc_file $datadir/$file";
+     if (!nupyf($nupyf_cmd))
+@@ -203,6 +203,8 @@
+     rename_if_exists("$rules_dir/l7_rules.tmp","$rules_dir/l7_rules");
+     foreach(array($nufw_rules_dir,$std_rules_dir) as $the_dir){
+         rename_if_exists("$the_dir/nat_rules.tmp","$the_dir/nat_rules");
++        rename_if_exists("$the_dir/dispatch_targets.tmp","$the_dir/dispatch_targets");
++        rename_if_exists("$the_dir/default_estrel_invalid.tmp","$the_dir/default_estrel_invalid");
+         rename_if_exists("$the_dir/dispatch_rules.tmp","$the_dir/dispatch_rules");
+         rename_if_exists("$the_dir/forward_rules.tmp","$the_dir/forward_rules");
+         rename_if_exists("$the_dir/input_rules.tmp","$the_dir/input_rules");
+diff -urN nuface-2.0.13.orig/scripts/init-firewall nuface-2.0.13/scripts/init-firewall
+--- nuface-2.0.13.orig/scripts/init-firewall	2008-11-11 06:19:41.000000000 +1300
++++ nuface-2.0.13/scripts/init-firewall	2009-02-16 14:34:24.000000000 +1300
+@@ -39,6 +39,8 @@
+ NUFW_RULES_DIR=$BASEDIR_DYN/nufw
+ STD_RULES_DIR=$BASEDIR_DYN/standard
+ DISPATCH_RULES=dispatch_rules
++DEFAULT_ESTREL_INVALID=default_estrel_invalid
++DISPATCH_TARGETS=dispatch_targets
+ FWD_RULES=forward_rules
+ INPUT_RULES=input_rules
+ OUTPUT_RULES=output_rules
+@@ -64,6 +66,14 @@
+     echo "Sorry. Can't find file ${dir}/${DISPATCH_RULES}"
+     exit 1
+   fi
++  if [ ! -f $dir/$DEFAULT_ESTREL_INVALID ]; then
++    echo "Sorry. Can't find file ${dir}/${DEFAULT_ESTREL_INVALID}"
++    exit 1
++  fi
++  if [ ! -f $dir/$DISPATCH_TARGETS ]; then
++    echo "Sorry. Can't find file ${dir}/${DISPATCH_TARGETS}"
++    exit 1
++  fi
+   if [ ! -f $dir/$FWD_RULES ]; then
+     echo "Sorry. Can't find file ${dir}/${FWD_RULES}"
+     exit 1
+@@ -177,13 +187,13 @@
+   echo " o dispatch and filter rules"
+   (echo -e "*filter\n:FORWARD ACCEPT\n:INPUT ACCEPT\n:OUTPUT ACCEPT\n"; \
+    special_reload_rules start; \
+-   cat $(find_local_rules filter) $FILES $(find_local_post_rules filter) \
++   cat $(find_local_rules filter) $dir/$DISPATCH_TARGETS $(find_local_rules filter .targets) $dir/$DEFAULT_ESTREL_INVALID $(find_local_rules filter .dispatch) $FILES $(find_local_rules filter .post) \
+   ) | load_iptables_rules
+ 
+   if [ $MANAGE_NAT = 1 ]; then
+     echo " o nat rules"
+     (echo -e "*nat\n:PREROUTING ACCEPT\n:POSTROUTING ACCEPT\n:OUTPUT ACCEPT\n"; \
+-     cat $(find_local_rules nat) $dir/$NAT_RULES $(find_local_post_rules nat) \
++     cat $(find_local_rules nat) $dir/$NAT_RULES $(find_local_rules nat .post) \
+     ) | load_iptables_rules
+   fi
+ 
+@@ -195,37 +205,27 @@
+     if [ -f $BASEDIR_DYN/$L7_RULES ]; then
+       (echo -e $ASTRING; \
+         cat $(find_local_rules mangle) $dir/$MANGLE_RULES \
+-            $BASEDIR_DYN/$L7_RULES $(find_local_post_rules mangle) \
++            $BASEDIR_DYN/$L7_RULES $(find_local_rules mangle .post) \
+       ) | load_iptables_rules
+     else
+       (echo -e $ASTRING; \
+-       cat $(find_local_rules mangle) $dir/$MANGLE_RULES $(find_local_post_rules mangle) \
++       cat $(find_local_rules mangle) $dir/$MANGLE_RULES $(find_local_rules mangle .post) \
+       ) | load_iptables_rules
+     fi
+   fi
+ }
+ 
+ 
+-# find files in local_rules.d tah begin with a
++# find files in local_rules.d that begin with a
+ # fixed prefix
+-# args: prefix to search for
++# optional fixed suffix
++# args: prefix suffix to search for
+ find_local_rules(){
+     prefix=$1
++    suffix=$2
+ 
+     if [ -d $LOCAL_RULES_D ]; then
+-        for f in $LOCAL_RULES_D/$prefix*.rules; do
+-            if [ -f $f ]; then
+-                echo -n "$f "
+-            fi
+-        done
+-    fi
+-}
+-
+-find_local_post_rules(){
+-    prefix=$1
+-
+-    if [ -d $LOCAL_RULES_D ]; then
+-        for f in $LOCAL_RULES_D/$prefix*.rules.post; do
++        for f in $LOCAL_RULES_D/$prefix*.rules${suffix}; do
+             if [ -f $f ]; then
+                 echo -n "$f "
+             fi
+diff -urN nuface-2.0.13.orig/scripts/nupyf/ipt.py nuface-2.0.13/scripts/nupyf/ipt.py
+--- nuface-2.0.13.orig/scripts/nupyf/ipt.py	2009-01-08 23:28:33.000000000 +1300
++++ nuface-2.0.13/scripts/nupyf/ipt.py	2009-02-16 14:35:39.000000000 +1300
+@@ -314,10 +314,9 @@
+         for ininternet_key in ininternet_keys:
+             s_sorted_ininternet += h_ininternet[ininternet_key]
+         s_sorted_outinternet = ''.join(l_outinternet)
+-        return estrel + invalid + s_sorted_vpn + s_sorted_forward + s_sorted_input +\
+-               s_sorted_output + s_sorted_ininternet + s_sorted_outinternet +\
+-               s_sorted_internet + linesep + sloopback + linesep +\
+-               default_log_drop + linesep
++	rules = [ estrel, invalid, s_sorted_vpn, s_sorted_forward, s_sorted_input, s_sorted_output, s_sorted_ininternet, \
++		  s_sorted_outinternet, s_sorted_internet + linesep, sloopback + linesep, default_log_drop + linesep ]
++        return rules
+ 
+     def insert_hash_net_chains(self, hash, src, dst, mystring):
+         """hash indexed by src network, dst network"""
+diff -urN nuface-2.0.13.orig/scripts/scripts/nupyf nuface-2.0.13/scripts/scripts/nupyf
+--- nuface-2.0.13.orig/scripts/scripts/nupyf	2009-01-09 03:16:43.000000000 +1300
++++ nuface-2.0.13/scripts/scripts/nupyf	2009-02-16 14:37:52.000000000 +1300
+@@ -100,6 +100,10 @@
+     parser.add_option('-d', '--dispatch', dest='dispatch',
+         help='file to write dispatch commands in',
+         metavar='FILE', default='')
++    parser.add_option('-e', '--default_estrel_invalid', dest='default_estrel_invalid',
++        help='file to write default_estrel_invalid commands in', metavar='FILE', default='')
++    parser.add_option('-t', '--dispatch_targets', dest='dispatch_targets',
++        help='file to write dispatch targets commands in', metavar='FILE', default='')
+     parser.add_option('-f', '--forward', dest='forward',
+         help='file to write forward iptables rules in', metavar='FILE')
+     parser.add_option('-i', '--input', dest='input',
+@@ -413,11 +417,18 @@
+         rules_create = fwp.create_ipt_chains()
+         rules_connect = fwp.connect_chains()
+ 
++        default_estrel_invalid = rules_connect.pop(0) + rules_connect.pop(0)
++        dispatch_rules = rules_connect.pop(0) + rules_connect.pop(0) + rules_connect.pop(0) + rules_connect.pop(0) + rules_connect.pop(0) + rules_connect.pop(0) + rules_connect.pop(0) + rules_connect.pop(0) + rules_connect.pop(0)
++        
+         input_rules, output_rules, srules = fwp.gen_rules(rescue = self.options.rescue)
+         intro = "#Generated by nupyf on %s from %s\n\n" % (
+             datetime.now(), self.acl_filename)
+         if self.options.dispatch:
+-            try_write_file(self.options.dispatch, intro, '#DISPATCH and DEFAULT Rules%s'%(linesep), rules_create, rules_connect)
++            try_write_file(self.options.dispatch, intro, '#DISPATCH Rules%s'%(linesep), dispatch_rules)
++        if self.options.default_estrel_invalid:
++            try_write_file(self.options.default_estrel_invalid, intro, '#DEFAULT Established and Related Rules%s'%(linesep), default_estrel_invalid)
++        if self.options.dispatch_targets:
++            try_write_file(self.options.dispatch_targets, intro, '#DISPATCH Target Rules%s'%(linesep), rules_create)
+         if self.options.forward:
+             try_write_file(self.options.forward, intro, '#Rules for FORWARD%s'%linesep, srules)
+         if self.options.input:

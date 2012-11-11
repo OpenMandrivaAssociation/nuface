@@ -1,0 +1,12 @@
+Index: doc/Makefile
+===================================================================
+--- doc/Makefile	(revision 10151)
++++ doc/Makefile	(working copy)
+@@ -1,5 +1,5 @@
+-XSLTPROC_EN=xsltproc --stringparam l10n.gentext.default.language en --stringparam html.stylesheet ck-style.css /usr/share/xml/docbook/stylesheet/nwalsh/html/onechunk.xsl
+-XSLTPROC_FR=xsltproc --stringparam l10n.gentext.default.language fr --stringparam html.stylesheet ck-style.css /usr/share/xml/docbook/stylesheet/nwalsh/html/onechunk.xsl
++XSLTPROC_EN=xsltproc --stringparam l10n.gentext.default.language en --stringparam html.stylesheet ck-style.css /usr/share/sgml/docbook/xsl-stylesheets-*/xhtml/onechunk.xsl
++XSLTPROC_FR=xsltproc --stringparam l10n.gentext.default.language fr --stringparam html.stylesheet ck-style.css /usr/share/sgml/docbook/xsl-stylesheets-*/xhtml/onechunk.xsl
+ LN=(ln -s ../../ck-style.css||/bin/true)
+ 
+ all:

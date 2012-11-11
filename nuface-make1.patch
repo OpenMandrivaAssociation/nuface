@@ -1,0 +1,69 @@
+--- Makefile	2009-03-12 11:04:06.000000000 +0100
++++ Makefile.oden	2010-03-04 17:40:51.824380952 +0100
+@@ -7,14 +7,8 @@
+ # User defined options
+ # eg. "make install DESTDIR=/tmp"
+ DESTDIR=
+-ROOT_USER=root
+-ROOT_GROUP=root
+-WWW_USER=www-data
+-WWW_GROUP=www-data
+ 
+ # arguments for install
+-ROOT=-o $(ROOT_USER) -g $(ROOT_GROUP)
+-WWW=-o $(ROOT_USER) -g $(WWW_GROUP)
+ 
+ # Programs
+ SHELL=bash
+@@ -31,7 +25,6 @@
+ LOCK_DIR=$(DESTDIR)/var/lock
+ EXEC_PREFIX=$(PREFIX)/sbin
+ INITDIR=$(DESTDIR)/etc/init.d
+-FWDIR=$(DESTDIR)/etc/network/firewall
+ ETCDIR=$(DESTDIR)/etc/nuface
+ 
+ # NuFace configuration (user data)
+@@ -43,7 +36,7 @@
+ LOCALRULESDIR=$(NUFACEDIR)/local_rules.d
+ 
+ # PHP et Javascript directory
+-WEBDIR=$(DESTDIR)/usr/share/edenwall-web/nuface
++WEBDIR=$(DESTDIR)/var/www/nuface
+ 
+ # Python parameters
+ PYTHON_VERSION=$(shell $(PYTHON) -c 'from sys import hexversion; print "%s.%s" % (hexversion >> 24, (hexversion >> 16) & 0xFF)')
+@@ -88,14 +81,10 @@
+ install_config: install_webconfig install_localrules
+ 	install -d $(ROOT) -m 0755 $(ETCDIR)
+ 	if [ ! -e $(ETCDIR)/config.php ]; then \
+-		echo -e "<?php\n# Add your own options from $(WEBDIR)/include/default_config.php\n?>" > $(ETCDIR)/config.php; \
+-		chmod 0640 $(ETCDIR)/config.php; \
+-		chown $(ROOT_USER):$(WWW_GROUP) $(ETCDIR)/config.php; \
++		echo -e "<?php\n# Add your own options from /var/www/nuface/include/default_config.php\n?>" > $(ETCDIR)/config.php; \
+ 	fi
+-	ln -sf  $(ETCDIR)/config.php $(WEBDIR)/include/config.php
++	echo -e "<?php\ninclude (\"/etc/nuface/config.php\"); \n?>" > $(WEBDIR)/include/config.php
+ 	test -e $(ETCDIR)/nupyf.conf || install $(WWW) -m 0640 scripts/nupyf.conf $(ETCDIR)/nupyf.conf
+-	install -d $(ROOT) -m 0755 $(dir $(FWDIR))
+-	ln -snf $(NUFACEDIR) $(FWDIR)
+ 
+ install_localrules:
+ 	install -d $(ROOT) -m 0775 $(LOCALRULESDIR)
+@@ -125,7 +114,7 @@
+ 	install -d $(ROOT) -m 0755 $(LOCALEDIR)/fr/LC_MESSAGES
+ 	$(MSGFMT) fr.po -o $(LOCALEDIR)/fr/LC_MESSAGES/nuface.mo
+ 
+-install_web: makedoc install_mo
++install_web: install_mo
+ 	install -d $(ROOT) -m 0755 $(WEBDIR)
+ 	install -d $(ROOT) -m 0755 $(WEBDIR)/doc/nuface/en
+ 	install -d $(ROOT) -m 0755 $(WEBDIR)/doc/nuface/fr
+@@ -148,8 +137,6 @@
+ 	install $(ROOT) -m 0644 js/*.js $(WEBDIR)/js
+ 	install $(ROOT) -m 0644 js/toolman/*.js $(WEBDIR)/js/toolman
+ 	cp -r js/yahoo/* $(WEBDIR)/js/yahoo/
+-	chown $(ROOT_USER):$(WWW_GROUP) -R $(WEBDIR)/js/yahoo/
+-	chmod -R a+r-w+X,u+w $(WEBDIR)/js/yahoo/
+ 
+ # installation for developpers developer
+ installdev: install_dirs symlink_python symlink_initd symlink_acl install_mo
