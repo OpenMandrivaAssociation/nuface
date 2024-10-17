@@ -4,7 +4,7 @@ Version:	2.0.16
 Release:	%mkrel 1
 License:	GPL
 Group:		System/Servers
-URL:		http://software.inl.fr/trac/wiki/EdenWall/NuFace
+URL:		https://software.inl.fr/trac/wiki/EdenWall/NuFace
 Source0:	http://software.inl.fr/releases/Nuface/%{name}-%{version}.tar.bz2
 Source1:	README.urpmi.%{name}
 Patch0:		nuface-docmake.patch
