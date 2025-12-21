@@ -16,6 +16,7 @@ Suggests:       mod_ssl nufw-utils
 Requires:	python iproute2 net-tools python-IPy nuphp
 Requires(post): rpm-helper
 Requires(preun): rpm-helper
+BuildRequires:	make
 BuildRequires:	python python-devel
 BuildRequires:	ImageMagick libxslt-proc docbook-style-xsl docbook-dtd45-xml
 BuildRequires:	apache-base >= 2.0.54
