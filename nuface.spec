@@ -1,7 +1,7 @@
 Summary:	A firewall administration web interface
 Name:		nuface
 Version:	2.0.16
-Release:	%mkrel 1
+Release:	2
 License:	GPL
 Group:		System/Servers
 URL:		https://software.inl.fr/trac/wiki/EdenWall/NuFace
